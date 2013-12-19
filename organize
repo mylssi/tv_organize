@@ -1,0 +1,76 @@
+#!/usr/bin/python2
+import re, sys, os
+BASEDIR = "/mnt/downloads/" #the dir where all downloads reside
+ORGANIZED_DIR = "/mnt/downloads/Organized" #directory where symlinks are made
+TV_REGEX1 = "s[\d]+e[\d]+.*(x264|xvid|divx|avc|h\.264)"
+TV_REGEX2 = "[\d]+x[\d]+.*(x264|xvid|divx|avc|h\.264)"
+TV_PACK_REGEX = "\.s[\d]+\..*(x264|xvid|divx|avc|h\.264|dvdrip|bdrip|720p)"
+TV_COMEDY_C = "(The.Daily.Show|The.Colbert.Report|Real.Time.With.Bill.Maher|Conan)\.[\d]+\.[\d]+\.[\d]+.*(720p|xvid).*"
+
+def link_it_tv_episode(orig_path, show_name, season, episode):
+   show_name = show_name.replace('_', '.').title()
+   try:
+      dir = "%s/TV/%s/Season_%d" % (ORGANIZED_DIR, show_name, int(season))
+      os.makedirs(dir)
+   except os.error:
+      pass
+   linked_path = "%s/%s" % (dir, episode)
+   print linked_path
+   try:
+      os.symlink(orig_path, linked_path)
+   except os.error:
+      pass
+
+def link_it_tv_season(orig_path, show_name, season):
+   show_name = show_name.replace('_', '.').title()
+   try:
+      dir = "%s/TV/%s" % (ORGANIZED_DIR, show_name)
+      os.makedirs(dir)
+   except os.error:
+      pass
+   linked_path = "%s/Season_%s" % (dir, int(season))
+   print linked_path
+   try:
+      os.symlink(orig_path, linked_path)
+   except os.error:
+      pass
+
+
+if __name__ == "__main__":
+   if len(sys.argv) < 2:
+      sys.exit()
+   for orig_path in sys.argv[1:]:
+      try:
+         orig_path = os.path.abspath(orig_path)
+         if orig_path[0:len(BASEDIR)] != BASEDIR:
+            print orig_path
+            continue
+         #if the there is a slash in the end of the path remove it
+         #so basename works correctly
+         if orig_path[-1:] == '/':
+            dirname = os.path.basename(orig_path[:-1])
+         else:
+            dirname = os.path.basename(orig_path)
+         #check that it matches
+         if re.search(TV_REGEX1, dirname, re.IGNORECASE) != None:
+            show_name = re.findall(".*(?=\.s[\d]+e[\d]+)", dirname, re.IGNORECASE)[0]
+            season_number = re.findall("(?<=s)[\d]+(?=e[\d]+)", dirname, re.IGNORECASE)[0]
+            episode_number = re.findall("(?<=s%se)[\d]+" % season_number, dirname, re.IGNORECASE)[0]
+            link_it_tv_episode(orig_path, show_name, season_number, dirname)
+         elif re.search(TV_REGEX2, dirname, re.IGNORECASE) != None:
+            show_name = re.findall(".*(?=\.[\d]+x[\d]+)", dirname, re.IGNORECASE)[0]
+            season_number = re.findall("(?<=\.)[\d]+(?=x[\d]+)", dirname, re.IGNORECASE)[0]
+            episode_number = re.findall("(?<=\.%sx)[\d]+" % season_number, dirname, re.IGNORECASE)[0]
+            link_it_tv_episode(orig_path, show_name, season_number, dirname)
+         elif re.search(TV_PACK_REGEX, dirname, re.IGNORECASE) != None:
+            show_name = re.findall(".*(?=\.s[\d]+)", dirname, re.IGNORECASE)[0]
+            season_number = re.findall("(?<=\.s)[\d]+(?=\.)", dirname, re.IGNORECASE)[0]
+            link_it_tv_season(orig_path, show_name, season_number)
+         elif re.search(TV_COMEDY_C, dirname, re.IGNORECASE) != None:
+            show_name = re.findall(".*(?=\.[\d]+\.[\d]+\.[\d]+\.)", dirname, re.IGNORECASE)[0]
+            season_number = re.findall("(?<=\.)[\d]+(?=\.)", dirname, re.IGNORECASE)[0]
+            link_it_tv_episode(orig_path, show_name, season_number, dirname)
+         else:
+            print orig_path 
+      except IndexError:
+         pass
